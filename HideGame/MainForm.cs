@@ -13,9 +13,16 @@ namespace HideGame
 {
 	public partial class MainForm : Form
 	{
-		const int MaxNameLength = 12;
-		IntPtr m_wndHidden = IntPtr.Zero;
-		string m_nameHidden = null;
+		static string[] ClassBlacklist = new string[] {
+			"Progman", // 桌面
+			"WorkerW", // 桌面
+			"Shell_TrayWnd", // 任务栏		
+		};
+
+		const int MaxNameLength = 20;
+		IntPtr m_prevTarget = IntPtr.Zero;
+		IntPtr m_targetWnd = IntPtr.Zero;
+		string m_targetName = null;		
 
 		public MainForm()
 		{
@@ -32,7 +39,7 @@ namespace HideGame
 				MessageBox.Show(this, "Cannot register hotkey Ctrl-Alt-B", Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 			}
 
-			//notifyIcon1.ShowBalloonTip(1500, Application.ProductName, "Press Ctrl-Alt-B to hide/show games.", ToolTipIcon.None);
+			notifyIcon1.ShowBalloonTip(1500, Application.ProductName, "Press Ctrl-Alt-B to hide/restore foreground window.", ToolTipIcon.None);
 			UpdateTrayIcon();
 		}
 
@@ -46,7 +53,7 @@ namespace HideGame
 			MouseEventArgs me = e as MouseEventArgs;
 			if (me.Button == MouseButtons.Left)
 			{
-				ShowGame();
+				ToggleGame(false);
 			}			
 		}
 
@@ -57,46 +64,62 @@ namespace HideGame
 
 		private void ShowGame()
 		{
-			if (m_wndHidden == IntPtr.Zero)
+			if (m_targetWnd == IntPtr.Zero)
 			{
 				return;
 			}
 
-			if (Window.IsWindow(m_wndHidden))
+			if (Window.IsWindow(m_targetWnd))
 			{
-				Window.ShowWindow(m_wndHidden, Window.SW_SHOW);
-				Window.SetForegroundWindow(m_wndHidden);
+				Window.ShowWindow(m_targetWnd, Window.SW_SHOW);
+				Window.SetForegroundWindow(m_targetWnd);
 			}
 
-			m_wndHidden = IntPtr.Zero;
-			m_nameHidden = null;
+			m_prevTarget = m_targetWnd;
+			m_targetWnd = IntPtr.Zero;
+			m_targetName = null;			
 			UpdateTrayIcon();
 		}
 
-		private void HideGame()
+		private void HideGame(bool foreground)
 		{
-			IntPtr hwnd = Window.GetForegroundWindow();
+			IntPtr hwnd;
+			if (!foreground && m_prevTarget != IntPtr.Zero && Window.IsWindow(m_prevTarget))
+			{
+				hwnd = m_prevTarget;				
+			}
+			else
+			{
+				hwnd = Window.GetForegroundWindow();
+			}
+			
 			if (hwnd == IntPtr.Zero || hwnd == Window.GetDesktopWindow())
 			{
 				return;
 			}
 
-			m_wndHidden = hwnd;
-			m_nameHidden = Window.GetWindowText(hwnd);
-			if (m_nameHidden != null && m_nameHidden.Length > MaxNameLength)
+			string className = Window.GetClassName(hwnd);
+			if (Array.IndexOf(ClassBlacklist, className) != -1)
 			{
-				m_nameHidden = m_nameHidden.Substring(0, MaxNameLength) + "...";
+				return;
 			}
 
-			Window.ShowWindow(m_wndHidden, Window.SW_HIDE);			
+			m_targetWnd = hwnd;
+			m_targetName = Window.GetWindowText(hwnd);
+			if (m_targetName != null && m_targetName.Length > MaxNameLength)
+			{
+				m_targetName = m_targetName.Substring(0, MaxNameLength) + "...";
+			}
+
+			Window.ShowWindow(m_targetWnd, Window.SW_HIDE);			
 			UpdateTrayIcon();
 		}
 
-		private void ToggleGame()
+		private void ToggleGame(bool foreground)
 		{
-			if (m_wndHidden == IntPtr.Zero)
+			if (m_targetWnd == IntPtr.Zero)
 			{
-				HideGame();
+				HideGame(foreground);
 			}
 			else
 			{
@@ -109,15 +132,15 @@ namespace HideGame
 
 		private void UpdateTrayIcon()
 		{
-			if (m_wndHidden == IntPtr.Zero)
+			if (m_targetWnd == IntPtr.Zero)
 			{
 				notifyIcon1.Icon = iconEmpty;
-				notifyIcon1.Text = Application.ProductName + " - Press Ctrl-Alt-B to hide foreground window.";
+				notifyIcon1.Text = Application.ProductName;
 			}
 			else
 			{
 				notifyIcon1.Icon = iconFull;
-				notifyIcon1.Text = string.Format("{0} - Click to restore [{1}].", Application.ProductName, m_nameHidden);
+				notifyIcon1.Text = string.Format("{0} [{1}]", Application.ProductName, m_targetName);
 			}			
 		}
 
@@ -126,7 +149,7 @@ namespace HideGame
 			int id = Hotkey.IsHotkeyEvent(ref m);
 			if (id == 0)
 			{
-				ToggleGame();
+				ToggleGame(true);
 			}
 
 			base.WndProc(ref m);
