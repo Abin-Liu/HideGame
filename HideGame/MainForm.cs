@@ -34,7 +34,7 @@ namespace HideGame
 			Hide();
 			ShowInTaskbar = false;
 
-			if (!Hotkey.RegisterHotKey(Handle, 0, Keys.B, ModKeys.Control | ModKeys.Alt))
+			if (!Hotkey.RegisterHotKey(Handle, 0, Keys.B, Keys.Control | Keys.Alt))
 			{
 				MessageBox.Show(this, "Cannot register hotkey Ctrl-Alt-B", Application.ProductName, MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 			}
