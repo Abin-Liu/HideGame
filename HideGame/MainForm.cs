@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Win32API;
+using MFGLib;
 
 namespace HideGame
 {
@@ -41,6 +42,8 @@ namespace HideGame
 
 			notifyIcon1.ShowBalloonTip(1500, Application.ProductName, "Press Ctrl-Alt-B to hide/restore foreground window.", ToolTipIcon.None);
 			UpdateTrayIcon();
+
+			autoStartToolStripMenuItem.Checked = RegistryHelper.CheckAutoStartApp(ProductName) != null;
 		}
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -153,6 +156,21 @@ namespace HideGame
 			}
 
 			base.WndProc(ref m);
-		}		
+		}
+
+		private void autoStartToolStripMenuItem_Click(object sender, EventArgs e)
+		{
+			bool autoStart = RegistryHelper.CheckAutoStartApp(ProductName) != null;
+			autoStart = !autoStart;
+			autoStartToolStripMenuItem.Checked = autoStart;
+			if (autoStart)
+			{
+				RegistryHelper.AddAutoStartApp(ProductName, Application.ExecutablePath);
+			}
+			else
+			{
+				RegistryHelper.RemoveAutoStartApp(ProductName);
+			}
+		}
 	}
 }
